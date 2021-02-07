@@ -60,6 +60,7 @@ def FeatureWoeIv(data:pd.DataFrame,col_list_str:list,col_list_num:list)->pd.Data
         tag+=1
         print('完成第%d个字符指标%s的初次woe值计算！  %s'%(tag,col,dt.datetime.now()))
     # 进行决策树分箱并计算每一箱的IV
+    woe_iv=pd.DataFrame(columns=['var','bin','bad_num','good_num','total_num','bad_rate','good_rate','woe','iv'])
     y=data['Y']
     tag1=0
     for col in col_list_num:
@@ -69,7 +70,7 @@ def FeatureWoeIv(data:pd.DataFrame,col_list_str:list,col_list_num:list)->pd.Data
         df=pd.concat([x,y],axis=1)
         df.columns = ['X', 'Y']  # 特征变量、目标变量字段的重命名
         df['bins'] = pd.cut(x=x.fillna(-999),bins=boundary, right=False)  # 获得每个x值所在的分箱区间
-        woe_info=pd.DataFrame(columns=['bin','bad_num','good_num','total_num','bad_rate','good_rate','woe','iv'],data=None)
+        woe_info=pd.DataFrame(columns=['var','bin','bad_num','good_num','total_num','bad_rate','good_rate','woe','iv'],data=None)
         tag2=0
         IV=0
         for bin in df['bins'].unique().categories:
@@ -84,21 +85,21 @@ def FeatureWoeIv(data:pd.DataFrame,col_list_str:list,col_list_num:list)->pd.Data
             data.loc[df_bin.index, col + '_WOE'] = woe
             iv=(bad_rate-good_rate)*woe
             data.loc[df_bin.index,col+'_IV']=iv
-            woe_info.loc[tag2,]=[bin,bad_num,good_num,total_num,bad_rate,good_rate,woe,iv]
+            woe_info.loc[tag2]=[col,bin,bad_num,good_num,total_num,bad_rate,good_rate,woe,iv]
             IV+=iv
         woe_info['IV']=IV
+        woe_iv=pd.concat([woe_iv, woe_info], ignore_index=True)
         print('第%d个数值型指标%s的woe分箱已完成, IV=%.3f   %s'%(tag1,col,IV,dt.datetime.now()))
         print(woe_info)
     tag1=0
     for col in col_list_str:
-        x = data[col]
+        x = data[col+'_WOE']
         tag1 += 1
         boundary = DecisionTreeBoundary(x, y)
         df = pd.concat([x, y], axis=1)
         df.columns = ['X', 'Y']  # 特征变量、目标变量字段的重命名
         df['bins'] = pd.cut(x=x.fillna(-999), bins=boundary, right=False)  # 获得每个x值所在的分箱区间
-        woe_info = pd.DataFrame(
-            columns=['bin', 'bad_num', 'good_num', 'total_num', 'bad_rate', 'good_rate', 'woe', 'iv'], data=None)
+        woe_info = pd.DataFrame(columns=['var','bin', 'bad_num', 'good_num', 'total_num', 'bad_rate', 'good_rate', 'woe', 'iv'], data=None)
         tag2 = 0
         IV = 0
         for bin in df['bins'].unique().categories:
@@ -113,12 +114,13 @@ def FeatureWoeIv(data:pd.DataFrame,col_list_str:list,col_list_num:list)->pd.Data
             data.loc[df_bin.index, col + '_WOE'] = woe
             iv = (bad_rate - good_rate) * woe
             data.loc[df_bin.index, col + '_IV'] = iv
-            woe_info.loc[tag2,] = [bin, bad_num, good_num, total_num, bad_rate, good_rate, woe, iv]
+            woe_info.loc[tag2] = [col,bin, bad_num, good_num, total_num, bad_rate, good_rate, woe, iv]
             IV += iv
         woe_info['IV'] = IV
+        woe_iv=pd.concat([woe_iv, woe_info], ignore_index=True)
         print('第%d个字符型指标%s的woe分箱已完成, IV=%.3f   %s' % (tag1, col, IV, dt.datetime.now()))
         print(woe_info)
-    return data
+    return data,woe_iv
         # grouped = df.groupby('bins')['y']  # 统计各分箱区间的好、坏、总客户数量
         # result_df = grouped.agg([('good', lambda y: (y == 0).sum()), ('bad', lambda y: (y == 1).sum()), ('total', 'count')])
         # print(result_df)
@@ -145,7 +147,7 @@ if __name__=='__main__':
     col_list_str=list(per_info.columns[1:-1])   # 不包含第0列，因为不是指标,也不包含最后一列,因为是y
     for col in col_list_num:
         col_list_str.remove(col)
-    data=FeatureWoeIv(per_info,col_list_str,col_list_num)
+    data,woe_iv=FeatureWoeIv(per_info,col_list_str,col_list_num)
     # 进行onehot
 
 
